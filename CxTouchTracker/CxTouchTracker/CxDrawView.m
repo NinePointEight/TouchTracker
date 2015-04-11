@@ -14,10 +14,49 @@
 //@property (nonatomic, strong) CxLine *currentLine;
 @property (nonatomic, strong) NSMutableDictionary *linesInProgress;
 @property (nonatomic, strong) NSMutableArray *finishedLines;
-
+@property (nonatomic, weak) CxLine *selectedLine;
 @end
 
 @implementation CxDrawView
+
+- (CxLine *) lineAtPoint:(CGPoint)p
+{
+    // 找出距离p最近的CxLine对象
+    for (CxLine *l in self.finishedLines) {
+        CGPoint start = l.begin;
+        CGPoint end = l.end;
+        
+        // 检查线条上的点
+        for (float t =0.0; t < 1.0; t += 0.05) {
+            float x = start.x + t * (end.x - start.x);
+            float y = start.y + t * (end.y - start.y);
+            
+            if (hypot(x - p.x, y - p.y) < 20.0) {
+                return l;
+            }
+        }
+    }
+    return nil;
+}
+
+- (void)tap:(UIGestureRecognizer *)gr
+{
+    NSLog(@"已正确识别单击");
+    
+    CGPoint point = [gr locationInView:self];
+    self.selectedLine = [self lineAtPoint:point];
+    
+    [self setNeedsDisplay];
+}
+
+- (void)doubleTap:(UIGestureRecognizer *)gr
+{
+    NSLog(@"已正确识别双击");
+    
+    [self.linesInProgress removeAllObjects];
+    [self.finishedLines removeAllObjects];
+    [self setNeedsDisplay];
+}
 
 - (void)touchesCancelled:(NSSet *)touches
                withEvent:(UIEvent *)event
@@ -119,6 +158,11 @@
         [self strokeLine:self.linesInProgress[key]];
     }
     
+    if (self.selectedLine) {
+        [[UIColor greenColor] set];
+        [self strokeLine:self.selectedLine];
+    }
+    
 //    if (self.currentLine) {
 //        // 用红色绘制正在画的线条
 //        [[UIColor redColor] set];
@@ -136,6 +180,22 @@
         self.backgroundColor = [UIColor grayColor];
         // 开启多点触摸
         self.multipleTouchEnabled = YES;
+        
+        // 创建手势识别对象
+        UITapGestureRecognizer *doubleTapRecognizer =
+        [[UITapGestureRecognizer alloc] initWithTarget:self
+                                                action:@selector(doubleTap:)];
+        doubleTapRecognizer.numberOfTapsRequired = 2;
+        doubleTapRecognizer.delaysTouchesBegan = YES;
+        [self addGestureRecognizer:doubleTapRecognizer];
+        
+        UITapGestureRecognizer *tapRecognizer =
+        [[UITapGestureRecognizer alloc] initWithTarget:self
+                                                action:@selector(tap:)];
+        tapRecognizer.delaysTouchesBegan = YES;
+        [tapRecognizer requireGestureRecognizerToFail:doubleTapRecognizer];
+        [self addGestureRecognizer:tapRecognizer];
+        
     }
     return self;
 }
