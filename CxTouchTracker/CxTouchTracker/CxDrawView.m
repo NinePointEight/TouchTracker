@@ -9,17 +9,56 @@
 #import "CxDrawView.h"
 #import "CxLine.h"
 
-@interface CxDrawView ()
+@interface CxDrawView ()<UIGestureRecognizerDelegate>
 
-//@property (nonatomic, strong) CxLine *currentLine;
+@property (nonatomic, strong) UIPanGestureRecognizer *moveRecognizer;
 @property (nonatomic, strong) NSMutableDictionary *linesInProgress;
 @property (nonatomic, strong) NSMutableArray *finishedLines;
 @property (nonatomic, weak) CxLine *selectedLine;
 @property (nonatomic) int tapLine;
 @property (nonatomic) int longPressLine;
+
 @end
 
 @implementation CxDrawView
+
+- (void)moveLine:(UIPanGestureRecognizer *)gr
+{
+    // 如果没有选中线条直接返回
+    if (!self.selectedLine) {
+        return;
+    }
+    
+    // 如果UIPanGestureRecognizer处于"changed"状态
+    if (gr.state == UIGestureRecognizerStateChanged) {
+        // 获取手指拖移距离
+        CGPoint translation = [gr translationInView:self];
+        
+        // 将拖移距离加到选中线条的起点和终点
+        CGPoint begin = self.selectedLine.begin;
+        CGPoint end = self.selectedLine.end;
+        begin.x += translation.x;
+        begin.y += translation.y;
+        end.x += translation.x;
+        end.y += translation.y;
+        
+        self.selectedLine.begin = begin;
+        self.selectedLine.end = end;
+        
+        [self setNeedsDisplay];
+        [gr setTranslation:CGPointZero inView:self];
+    }
+}
+
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer
+        shouldRecognizeSimultaneouslyWithGestureRecognizer:
+                          (UIGestureRecognizer *)otherGestureRecognizer
+{
+    if (gestureRecognizer == self.moveRecognizer) {
+        return YES;
+    }
+    return NO;
+}
 
 - (void)longPress:(UIGestureRecognizer *)gr
 {
@@ -134,10 +173,6 @@
         [self.finishedLines addObject:line];
         [self.linesInProgress removeObjectForKey:key];
     }
-//    [self.finishedLines addObject:self.currentLine];
-//    
-//    self.currentLine = nil;
-    
     [self setNeedsDisplay];
 }
 
@@ -151,13 +186,9 @@
         CxLine *line = self.linesInProgress[key];
         line.end = [t locationInView:self];
     }
-//    UITouch *t = [touches anyObject];
-//    CGPoint location = [t locationInView:self];
-//    
-//    self.currentLine.end = location;
-//    
+    
     [self setNeedsDisplay];
-}
+} 
 
 - (void)touchesBegan:(NSSet *)touches
            withEvent:(UIEvent *)event
@@ -175,16 +206,6 @@
         NSValue *key = [NSValue valueWithNonretainedObject:t];
         self.linesInProgress[key] = line;
     }
-
-//    UITouch *t = [touches anyObject];
-//    
-//    // 根据触摸位置创建CxLine对象
-//    CGPoint location = [t locationInView:self];
-//    
-//    self.currentLine= [[CxLine alloc] init];
-//    self.currentLine.begin = location;
-//    self.currentLine.end = location;
-    
     [self setNeedsDisplay];
 }
 
@@ -220,14 +241,8 @@
             [[UIColor yellowColor] set];
             [self strokeLine:self.selectedLine];
         }
-         
+        
     }
-    
-//    if (self.currentLine) {
-//        // 用红色绘制正在画的线条
-//        [[UIColor redColor] set];
-//        [self strokeLine:self.currentLine];
-//    }
 }
 
 - (instancetype)initWithFrame:(CGRect)frame
@@ -261,6 +276,12 @@
                                                       action:@selector(longPress:)];
         [self addGestureRecognizer:longRecognizer];
         
+        self.moveRecognizer = [[UIPanGestureRecognizer alloc]
+                               initWithTarget:self
+                               action:@selector(moveLine:)];
+        self.moveRecognizer.delegate = self;
+         self.moveRecognizer.cancelsTouchesInView = NO;
+        [self addGestureRecognizer:self.moveRecognizer];
     }
     return self;
 }
