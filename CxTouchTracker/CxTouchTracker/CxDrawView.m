@@ -15,9 +15,39 @@
 @property (nonatomic, strong) NSMutableDictionary *linesInProgress;
 @property (nonatomic, strong) NSMutableArray *finishedLines;
 @property (nonatomic, weak) CxLine *selectedLine;
+@property (nonatomic) int tapLine;
+@property (nonatomic) int longPressLine;
 @end
 
 @implementation CxDrawView
+
+- (void)longPress:(UIGestureRecognizer *)gr
+{
+    if (gr.state == UIGestureRecognizerStateBegan) {
+        CGPoint point = [gr locationInView:self];
+        self.selectedLine = [self lineAtPoint:point];
+        self.longPressLine = 1;
+        self.tapLine = 0;
+        if (self.selectedLine) {
+            [self.linesInProgress removeAllObjects];
+        }
+    } else if (gr.state == UIGestureRecognizerStateEnded) {
+        self.selectedLine = nil;
+    }
+    [self setNeedsDisplay];
+}
+
+- (BOOL)canBecomeFirstResponder
+{
+    return YES;
+}
+
+- (void)deleteLine:(id)sender
+{
+    [self.finishedLines removeObject:self.selectedLine];
+    
+    [self setNeedsDisplay];
+}
 
 - (CxLine *) lineAtPoint:(CGPoint)p
 {
@@ -45,6 +75,30 @@
     
     CGPoint point = [gr locationInView:self];
     self.selectedLine = [self lineAtPoint:point];
+    
+    if (self.selectedLine) {
+        // 使视图成为UIMenuItem动作消息目标
+        [self becomeFirstResponder];
+        
+        self.longPressLine = 0;
+        self.tapLine = 1;
+        
+        // 获取UIMenuController对象
+        UIMenuController *menu = [UIMenuController sharedMenuController];
+        
+        // 创建标题为"Delete"的UIMenuItem对象
+        UIMenuItem *deleteItem =
+        [[UIMenuItem alloc] initWithTitle:@"Delete"
+                                   action:@selector(deleteLine:)];
+        menu.menuItems = @[deleteItem];
+        
+        // 为UIMenuController设置显示区域，将其设置为可见
+        [menu setTargetRect:CGRectMake(point.x, point.y, 2, 2) inView:self];
+        [menu setMenuVisible:YES animated:YES];
+    } else {
+        UIMenuController *menu = [UIMenuController sharedMenuController];
+        [menu setMenuVisible:NO animated:YES];
+    }
     
     [self setNeedsDisplay];
 }
@@ -159,8 +213,14 @@
     }
     
     if (self.selectedLine) {
-        [[UIColor greenColor] set];
-        [self strokeLine:self.selectedLine];
+        if (self.tapLine == 1) {
+            [[UIColor greenColor] set];
+            [self strokeLine:self.selectedLine];
+        } else if (self.longPressLine) {
+            [[UIColor yellowColor] set];
+            [self strokeLine:self.selectedLine];
+        }
+         
     }
     
 //    if (self.currentLine) {
@@ -195,6 +255,11 @@
         tapRecognizer.delaysTouchesBegan = YES;
         [tapRecognizer requireGestureRecognizerToFail:doubleTapRecognizer];
         [self addGestureRecognizer:tapRecognizer];
+        
+        UILongPressGestureRecognizer *longRecognizer =
+        [[UILongPressGestureRecognizer alloc] initWithTarget:self
+                                                      action:@selector(longPress:)];
+        [self addGestureRecognizer:longRecognizer];
         
     }
     return self;
