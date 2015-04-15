@@ -10,8 +10,10 @@
 #import "BNRItem.h"
 #import "BNRImageStore.h"
 
-@interface BNRDetailViewController () <UINavigationControllerDelegate, UIImagePickerControllerDelegate,
-    UITextFieldDelegate>
+@interface BNRDetailViewController () < UINavigationControllerDelegate,
+                                        UIImagePickerControllerDelegate,
+                                        UITextFieldDelegate,
+                                        UIPopoverControllerDelegate >
 
 @property (weak, nonatomic) IBOutlet UITextField *nameField;
 @property (weak, nonatomic) IBOutlet UITextField *serialNumberField;
@@ -19,6 +21,8 @@
 @property (weak, nonatomic) IBOutlet UILabel *dateLabel;
 @property (weak, nonatomic) IBOutlet UIImageView *imageView;
 @property (weak, nonatomic) IBOutlet UIToolbar *toolbar;
+@property (weak, nonatomic) IBOutlet UIBarButtonItem *cameraButton;
+@property (strong, nonatomic) UIPopoverController *imagePickerPopover;
 
 - (IBAction)takePicture:(id)sender;
 - (IBAction)backgroundTapped:(id)sender;
@@ -26,10 +30,40 @@
 @end
 
 @implementation BNRDetailViewController
+- (void)prepareViewsForOrientation:(UIInterfaceOrientation)orientation
+{
+    if ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPad) {
+        return;
+    }
+    
+    // 判断设备是否横屏
+    if (UIInterfaceOrientationIsLandscape(orientation)) {
+        self.imageView.hidden = YES;
+        self.cameraButton.enabled = NO;
+    } else {
+        self.imageView.hidden = NO;
+        self.cameraButton.enabled = YES;
+    }
+}
+
+- (void)willAnimateRotationToInterfaceOrientation:(UIInterfaceOrientation)
+        toInterfaceOrientation duration:(NSTimeInterval)duration
+{
+    [self prepareViewsForOrientation:toInterfaceOrientation];
+}
+
+- (void)popoverControllerDidDismissPopover:(UIPopoverController *)popoverController
+{
+    NSLog(@"用户关闭popover");
+    self.imagePickerPopover = nil;
+}
 
 - (void)viewWillAppear:(BOOL)animated
 {
     [super viewWillAppear:animated];
+    
+    UIInterfaceOrientation io = [[UIApplication sharedApplication] statusBarOrientation];
+    [self prepareViewsForOrientation:io];
 
     BNRItem *item = self.item;
 
@@ -83,6 +117,12 @@
 
 - (IBAction)takePicture:(id)sender
 {
+    if ([self.imagePickerPopover isPopoverVisible]) {
+        [_imagePickerPopover dismissPopoverAnimated:YES];
+        _imagePickerPopover = nil;
+        return;
+    }
+    
     UIImagePickerController *imagePicker = [[UIImagePickerController alloc] init];
 
     // If the device ahs a camera, take a picture, otherwise,
@@ -96,12 +136,34 @@
     imagePicker.delegate = self;
 
     // Place image picker on the screen
-    [self presentViewController:imagePicker animated:YES completion:NULL];
+    //[self presentViewController:imagePicker animated:YES completion:NULL];
+    
+    // 创建UIPopoverController前先检查设备类型
+    if ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPad) {
+        self.imagePickerPopover = [[UIPopoverController alloc]
+                                   initWithContentViewController:imagePicker];
+    
+    self.imagePickerPopover.delegate = self;
+    
+    // 显示UIPopoverController对象
+    // sender指向相机按钮对象
+    [self.imagePickerPopover presentPopoverFromBarButtonItem:sender
+                                    permittedArrowDirections:UIPopoverArrowDirectionAny
+                                                    animated:YES];
+    } else {
+        [self presentViewController:imagePicker animated:YES completion:nil];
+    }
 }
 
 - (IBAction)backgroundTapped:(id)sender
 {
     [self.view endEditing:YES];
+    
+//    for (UIView *subview in self.view.subviews) {
+//        if ([subview hasAmbiguousLayout]) {
+//            [subview exerciseAmbiguityInLayout];
+//        }
+//    }
 }
 
 - (void)imagePickerController:(UIImagePickerController *)picker
@@ -126,7 +188,15 @@ didFinishPickingMediaWithInfo:(NSDictionary *)info
 
     // Take image picker off the screen -
     // you must call this dismiss method
-    [self dismissViewControllerAnimated:YES completion:NULL];
+    //[self dismissViewControllerAnimated:YES completion:NULL];
+    
+    // 判断UIPopoverController是否存在
+    if (self.imagePickerPopover) {
+        [self.imagePickerPopover dismissPopoverAnimated:YES];
+        self.imagePickerPopover = nil;
+    } else {
+        [self dismissViewControllerAnimated:YES completion:nil];
+    }
 }
 
 - (BOOL)textFieldShouldReturn:(UITextField *)textField
@@ -134,5 +204,14 @@ didFinishPickingMediaWithInfo:(NSDictionary *)info
     [textField resignFirstResponder];
     return YES;
 }
+
+
+//- (void)viewDidLayoutSubviews
+//{
+//    for (UIView *subview in self.view.subviews) {
+//        if ([subview hasAmbiguousLayout])
+//            NSLog(@"AMBIGUOUS: %@",subview);
+//    }
+//}
 
 @end
