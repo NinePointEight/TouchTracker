@@ -27,9 +27,10 @@
 
         // Create a new bar button item that will send
         // addNewItem: to BNRItemsViewController
-        UIBarButtonItem *bbi = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemAdd
-                                                                             target:self
-                                                                             action:@selector(addNewItem:)];
+        UIBarButtonItem *bbi = [[UIBarButtonItem alloc]
+                                initWithBarButtonSystemItem:UIBarButtonSystemItemAdd
+                                                     target:self
+                                                     action:@selector(addNewItem:)];
 
         // Set this bar button item as the right item in the navigationItem
         navItem.rightBarButtonItem = bbi;
@@ -64,10 +65,12 @@
     return [[[BNRItemStore sharedStore] allItems] count];
 }
 
-- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
+- (UITableViewCell *)tableView:(UITableView *)tableView
+         cellForRowAtIndexPath:(NSIndexPath *)indexPath
 {
     // Get a new or recycled cell
-    UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"UITableViewCell" forIndexPath:indexPath];
+    UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"UITableViewCell"
+                                                            forIndexPath:indexPath];
 
     // Set the text on the cell with the description of the item
     // that is at the nth index of items, where n = row this cell
@@ -82,8 +85,9 @@
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath
 {
-    BNRDetailViewController *detailViewController = [[BNRDetailViewController alloc] init];
-
+    //BNRDetailViewController *detailViewController = [[BNRDetailViewController alloc] init];
+    
+    BNRDetailViewController *detailViewController = [[BNRDetailViewController alloc] initForNewItem:NO];
     NSArray *items = [[BNRItemStore sharedStore] allItems];
     BNRItem *selectedItem = items[indexPath.row];
 
@@ -121,17 +125,22 @@
 
 - (IBAction)addNewItem:(id)sender
 {
-    // Create a new BNRItem and add it to the store
     BNRItem *newItem = [[BNRItemStore sharedStore] createItem];
-
-    // Figure out where that item is in the array
-    NSInteger lastRow = [[[BNRItemStore sharedStore] allItems] indexOfObject:newItem];
-
-    NSIndexPath *indexPath = [NSIndexPath indexPathForRow:lastRow inSection:0];
-
-    // Insert this new row into the table.
-    [self.tableView insertRowsAtIndexPaths:@[indexPath]
-                          withRowAnimation:UITableViewRowAnimationTop];
+    
+    BNRDetailViewController *detailViewController =
+                                            [[BNRDetailViewController alloc] initForNewItem:YES];
+    detailViewController.item = newItem;
+    
+    detailViewController.dismissBlock = ^{
+        [self.tableView reloadData];
+    };
+    
+    UINavigationController *navController = [[UINavigationController alloc]
+                                            initWithRootViewController:detailViewController];
+    navController.modalPresentationStyle = UIModalPresentationFormSheet;
+    
+    [self presentViewController:navController animated:YES completion:nil];
+    
 }
 
 @end
